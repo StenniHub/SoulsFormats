@@ -11,7 +11,7 @@ namespace SoulsFormats
     /// <summary>
     /// An extended reader for binary data supporting big and little endianness, value assertions, and arrays.
     /// </summary>
-    public class BinaryReaderEx
+    public class BinaryReaderEx : IDisposable
     {
         private BinaryReader br;
         private Stack<long> steps;
@@ -1138,6 +1138,11 @@ namespace SoulsFormats
             byte r = br.ReadByte();
             byte a = br.ReadByte();
             return Color.FromArgb(a, r, g, b);
+        }
+
+        public void Dispose()
+        {
+            Stream.Close();
         }
         #endregion
     }
