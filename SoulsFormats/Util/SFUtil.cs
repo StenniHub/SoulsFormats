@@ -412,7 +412,7 @@ namespace SoulsFormats
             //Buffer.BlockCopy(encrypted, 0, hash, 0, 16);
 
             byte[] iv = new byte[16];
-            Buffer.BlockCopy(encrypted, 16, iv, 0, 16);
+            Buffer.BlockCopy(encrypted, 0, iv, 0, 16);
 
             using (Aes aes = Aes.Create())
             {
@@ -425,7 +425,7 @@ namespace SoulsFormats
                 aes.IV = iv;
 
                 ICryptoTransform decryptor = aes.CreateDecryptor();
-                using (var encStream = new MemoryStream(encrypted, 32, encrypted.Length - 32))
+                using (var encStream = new MemoryStream(encrypted, 16, encrypted.Length - 16))
                 using (var cryptoStream = new CryptoStream(encStream, decryptor, CryptoStreamMode.Read))
                 using (var decStream = new MemoryStream())
                 {

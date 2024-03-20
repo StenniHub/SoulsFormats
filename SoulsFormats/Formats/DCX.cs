@@ -367,7 +367,7 @@ namespace SoulsFormats
             br.AssertASCII("DCP\0");
             br.AssertASCII("KRAK");
             br.AssertInt32(0x20);
-            br.AssertInt32(0x6000000);
+            br.AssertInt32(0x6000000, 0x9000000);
             br.AssertInt32(0);
             br.AssertInt32(0);
             br.AssertInt32(0);
@@ -376,7 +376,7 @@ namespace SoulsFormats
             br.AssertInt32(8);
 
             byte[] compressed = br.ReadBytes((int)compressedSize);
-            return Oodle26.Decompress(compressed, uncompressedSize);
+            return Oodle.GetOodleCompressor().Decompress(compressed, uncompressedSize);
         }
 
         #region Public Compress
@@ -608,7 +608,7 @@ namespace SoulsFormats
 
         private static void CompressDCXKRAK(byte[] data, BinaryWriterEx bw)
         {
-            byte[] compressed = Oodle26.Compress(data, Oodle26.OodleLZ_Compressor.OodleLZ_Compressor_Kraken, Oodle26.OodleLZ_CompressionLevel.OodleLZ_CompressionLevel_Optimal2);
+            byte[] compressed = Oodle.GetOodleCompressor().Compress(data, Oodle.OodleLZ_Compressor.OodleLZ_Compressor_Kraken, Oodle.OodleLZ_CompressionLevel.OodleLZ_CompressionLevel_Optimal2);
 
             bw.WriteASCII("DCX\0");
             bw.WriteInt32(0x11000);
