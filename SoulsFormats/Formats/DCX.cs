@@ -124,7 +124,8 @@ namespace SoulsFormats
                 }
                 else if (format == "KRAK")
                 {
-                    type = Type.DCX_KRAK;
+                    int compressionLevel = br.GetByte(0x30);
+                    type = compressionLevel == 9 ? Type.DCX_KRAK_MAX : Type.DCX_KRAK;
                 }
                 else if (format == "ZSTD")
                 {
@@ -158,6 +159,8 @@ namespace SoulsFormats
                 return DecompressDCXDFLT(br, type);
             else if (type == Type.DCX_KRAK)
                 return DecompressDCXKRAK(br);
+            else if (type == Type.DCX_KRAK_MAX)
+                return DecompressDCXKRAK(br, true);
             else if (type == Type.ZSTD)
                 return DecompressDCXZSTD(br);
             else
@@ -360,7 +363,7 @@ namespace SoulsFormats
             return SFUtil.ReadZlib(br, compressedSize);
         }
 
-        private static byte[] DecompressDCXKRAK(BinaryReaderEx br)
+        private static byte[] DecompressDCXKRAK(BinaryReaderEx br, bool maxCompression = false)
         {
             br.AssertASCII("DCX\0");
             br.AssertInt32(0x11000);
@@ -374,7 +377,10 @@ namespace SoulsFormats
             br.AssertASCII("DCP\0");
             br.AssertASCII("KRAK");
             br.AssertInt32(0x20);
-            br.AssertInt32(0x6000000);
+            br.AssertByte(maxCompression ? (byte)9 : (byte)6);
+            br.AssertByte(0);
+            br.AssertByte(0);
+            br.AssertByte(0);
             br.AssertInt32(0);
             br.AssertInt32(0);
             br.AssertInt32(0);
@@ -383,7 +389,7 @@ namespace SoulsFormats
             br.AssertInt32(8);
 
             byte[] compressed = br.ReadBytes((int)compressedSize);
-            return Oodle26.Decompress(compressed, uncompressedSize);
+            return Oodle.GetOodleCompressor().Decompress(compressed, uncompressedSize);
         }
         
         private static byte[] DecompressDCXZSTD(BinaryReaderEx br)
@@ -464,6 +470,8 @@ namespace SoulsFormats
                 CompressDCXDFLT(data, bw, type);
             else if (type == Type.DCX_KRAK)
                 CompressDCXKRAK(data, bw);
+            else if (type == Type.DCX_KRAK_MAX)
+                CompressDCXKRAK(data, bw, true);
             else if (type == Type.ZSTD)
                 CompressDCXZSTD(data, bw);
             else if (type == Type.Unknown)
@@ -651,9 +659,10 @@ namespace SoulsFormats
             bw.FillInt32("CompressedSize", (int)(bw.Position - compressedStart));
         }
 
-        private static void CompressDCXKRAK(byte[] data, BinaryWriterEx bw)
+        private static void CompressDCXKRAK(byte[] data, BinaryWriterEx bw, bool maxCompression = false)
         {
-            byte[] compressed = Oodle26.Compress(data, Oodle26.OodleLZ_Compressor.OodleLZ_Compressor_Kraken, Oodle26.OodleLZ_CompressionLevel.OodleLZ_CompressionLevel_Optimal2);
+            byte[] compressed = Oodle.GetOodleCompressor().Compress(data, Oodle.OodleLZ_Compressor.OodleLZ_Compressor_Kraken,
+                maxCompression ? Oodle.OodleLZ_CompressionLevel.OodleLZ_CompressionLevel_Optimal5 : Oodle.OodleLZ_CompressionLevel.OodleLZ_CompressionLevel_Optimal2);
 
             bw.WriteASCII("DCX\0");
             bw.WriteInt32(0x11000);
@@ -667,7 +676,10 @@ namespace SoulsFormats
             bw.WriteASCII("DCP\0");
             bw.WriteASCII("KRAK");
             bw.WriteInt32(0x20);
-            bw.WriteInt32(0x6000000);
+            bw.WriteByte(maxCompression ? (byte)9 : (byte)6);
+            bw.WriteByte(0);
+            bw.WriteByte(0);
+            bw.WriteByte(0);
             bw.WriteInt32(0);
             bw.WriteInt32(0);
             bw.WriteInt32(0);
@@ -781,6 +793,11 @@ namespace SoulsFormats
             DCX_KRAK,
             
             /// <summary>
+            /// DCX header, different Oodle compression. Used in Armored Core VI.
+            /// </summary>
+            DCX_KRAK_MAX,
+            
+            /// <summary>
             /// DCX header, Oodle compression. Used in Sekiro.
             /// </summary>
             ZSTD,
@@ -825,6 +842,12 @@ namespace SoulsFormats
             /// Most common compression format for Elden Ring.
             /// </summary>
             EldenRing = Type.DCX_KRAK,
+
+
+            /// <summary>
+            /// Most common compression format for Armored Core VI.
+            /// </summary>
+            AC6 = Type.DCX_KRAK_MAX,
         }
     }
 }
