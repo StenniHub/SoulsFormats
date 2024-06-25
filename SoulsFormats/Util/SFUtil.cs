@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using ZstdSharp;
 
 namespace SoulsFormats
 {
@@ -323,6 +324,21 @@ namespace SoulsFormats
                 return decompressedStream.ToArray();
             }
         }
+        
+        public static byte[] ReadZstd(BinaryReaderEx br, int compressedSize)
+        {
+            byte[] compressed = br.ReadBytes(compressedSize);
+
+            using (var decompressedStream = new MemoryStream())
+            {
+                using (var compressedStream = new MemoryStream(compressed))
+                using (var deflateStream = new DecompressionStream(compressedStream))
+                {
+                    deflateStream.CopyTo(decompressedStream);
+                }
+                return decompressedStream.ToArray();
+            }
+        }
 
         /// <summary>
         /// Computes an Adler32 checksum used by Zlib.
@@ -499,6 +515,12 @@ namespace SoulsFormats
             byte[] bytes = File.ReadAllBytes(path);
             bytes = DecryptByteArray(erRegulationKey, bytes);
             return BND4.Read(bytes);
+        }
+        
+        public static byte[] DecryptERRegulationRaw(string path)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            return DecryptByteArray(erRegulationKey, bytes);
         }
 
         /// <summary>

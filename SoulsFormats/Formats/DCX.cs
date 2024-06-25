@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.IO.Compression;
+using ZstdSharp;
 
 namespace SoulsFormats
 {
@@ -125,6 +126,10 @@ namespace SoulsFormats
                 {
                     type = Type.DCX_KRAK;
                 }
+                else if (format == "ZSTD")
+                {
+                    type = Type.ZSTD;
+                }
             }
             else
             {
@@ -153,6 +158,8 @@ namespace SoulsFormats
                 return DecompressDCXDFLT(br, type);
             else if (type == Type.DCX_KRAK)
                 return DecompressDCXKRAK(br);
+            else if (type == Type.ZSTD)
+                return DecompressDCXZSTD(br);
             else
                 throw new FormatException("Unknown DCX format.");
         }
@@ -378,6 +385,42 @@ namespace SoulsFormats
             byte[] compressed = br.ReadBytes((int)compressedSize);
             return Oodle26.Decompress(compressed, uncompressedSize);
         }
+        
+        private static byte[] DecompressDCXZSTD(BinaryReaderEx br)
+        {
+            br.AssertASCII("DCX\0");
+            br.AssertInt32(0x11000);
+            br.AssertInt32(0x18);
+            br.AssertInt32(0x24);
+            br.AssertInt32(0x44);
+            br.AssertInt32(0x4C);
+
+            br.AssertASCII("DCS\0");
+            int uncompressedSize = br.ReadInt32();
+            int compressedSize = br.ReadInt32();
+
+            br.AssertASCII("DCP\0");
+            br.AssertASCII("ZSTD");
+            br.AssertInt32(0x20);
+            br.AssertByte(0x15);
+            br.AssertByte(0);
+            br.AssertByte(0);
+            br.AssertByte(0);
+            br.AssertInt32(0x0);
+            br.AssertByte(0);
+            br.AssertByte(0);
+            br.AssertByte(0);
+            br.AssertByte(0);
+            br.AssertInt32(0x0);
+            br.AssertInt32(0x010100);
+
+            br.AssertASCII("DCA\0");
+            br.AssertInt32(8);
+
+            byte[] decompressed = SFUtil.ReadZstd(br, compressedSize);
+
+            return decompressed;
+        }
 
         #region Public Compress
         /// <summary>
@@ -421,6 +464,8 @@ namespace SoulsFormats
                 CompressDCXDFLT(data, bw, type);
             else if (type == Type.DCX_KRAK)
                 CompressDCXKRAK(data, bw);
+            else if (type == Type.ZSTD)
+                CompressDCXZSTD(data, bw);
             else if (type == Type.Unknown)
                 throw new ArgumentException("You cannot compress a DCX with an unknown type.");
             else
@@ -633,6 +678,43 @@ namespace SoulsFormats
             bw.Pad(0x10);
         }
 
+        private static void CompressDCXZSTD(byte[] data, BinaryWriterEx bw)
+        {
+            Compressor compressor = new Compressor(7);
+            
+            byte[] compressed = compressor.Wrap(data).ToArray();
+            
+            bw.WriteASCII("DCX\0");
+            bw.WriteInt32(0x11000);
+            bw.WriteInt32(0x18);
+            bw.WriteInt32(0x24);
+            bw.WriteInt32(0x44);
+            bw.WriteInt32(0x4C);
+
+            bw.WriteASCII("DCS\0");
+            bw.WriteInt32(data.Length);
+            bw.WriteInt32(compressed.Length);
+
+            bw.WriteASCII("DCP\0");
+            bw.WriteASCII("ZSTD");
+            bw.WriteInt32(0x20);
+            bw.WriteByte(0x15);
+            bw.WriteByte(0);
+            bw.WriteByte(0);
+            bw.WriteByte(0);
+            bw.WriteInt32(0x0);
+            bw.WriteByte(0);
+            bw.WriteByte(0);
+            bw.WriteByte(0);
+            bw.WriteByte(0);
+            bw.WriteInt32(0x0);
+            bw.WriteInt32(0x010100);
+
+            bw.WriteASCII("DCA\0");
+            bw.WriteInt32(8);
+            bw.WriteBytes(compressed);
+        }
+
         /// <summary>
         /// Specific compression format used for a certain file.
         /// </summary>
@@ -697,6 +779,11 @@ namespace SoulsFormats
             /// DCX header, Oodle compression. Used in Sekiro.
             /// </summary>
             DCX_KRAK,
+            
+            /// <summary>
+            /// DCX header, Oodle compression. Used in Sekiro.
+            /// </summary>
+            ZSTD,
         }
 
         /// <summary>
